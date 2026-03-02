@@ -1,3 +1,32 @@
+/// # Feature flags
+///
+/// ## `osc-progress`
+///
+/// Enables native terminal progress bar support via the ConEmu OSC 9;4 protocol.
+/// Terminals like Ghostty, Windows Terminal, iTerm2, Kitty, and WezTerm render
+/// these as GUI progress bars in the title/tab bar. Unsupported terminals
+/// silently ignore the sequences.
+///
+/// The progress bar is emitted as an indeterminate/pulsing indicator while the
+/// spinner is active, and cleared when the spinner is stopped or dropped.
+///
+/// Sequences are only emitted when the output stream is a terminal (checked via
+/// `is_terminal()`), so piped output is unaffected.
+///
+/// **Signal handling caveat:** If the process is killed abruptly (e.g. `SIGINT`
+/// via Ctrl+C, `SIGKILL`), the `Drop` implementation may not run and the
+/// progress bar won't be cleared. Terminals like Ghostty mitigate this with a
+/// ~15-second auto-clear timeout, but for immediate cleanup, applications should
+/// install their own signal handler that calls [`Stream::osc_stop`] or emits
+/// the OSC 9;4 remove sequence (`\x1b]9;4;0\x1b\\`) before exiting.
+///
+/// Reference: <https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC>
+///
+/// ```toml
+/// [dependencies]
+/// spinners = { version = "4.1.0", features = ["osc-progress"] }
+/// ```
+
 use std::thread::JoinHandle;
 use std::time::Instant;
 use std::{
@@ -15,7 +44,7 @@ mod utils;
 pub struct Spinner {
     sender: Sender<(Instant, Option<String>)>,
     join: Option<JoinHandle<()>>,
-    stream: Stream
+    stream: Stream,
 }
 
 impl Drop for Spinner {
@@ -23,6 +52,11 @@ impl Drop for Spinner {
         if self.join.is_some() {
             self.sender.send((Instant::now(), None)).unwrap();
             self.join.take().unwrap().join().unwrap();
+            #[cfg(feature = "osc-progress")]
+            {
+                self.stream.osc_stop();
+                self.stream.osc_flush();
+            }
         }
     }
 }
@@ -95,6 +129,9 @@ impl Spinner {
 
         let stream = if let Some(stream) = stream { stream } else { Stream::default() };
 
+        #[cfg(feature = "osc-progress")]
+        stream.osc_start();
+
         let (sender, recv) = channel::<(Instant, Option<String>)>();
 
         let join = thread::spawn(move || 'outer: loop {
@@ -109,6 +146,13 @@ impl Spinner {
                 let frame = stop_symbol.unwrap_or_else(|| frame.to_string());
 
                 stream.write(&frame, &message, start_time, stop_time).expect("IO Error");
+                // Terminals like Ghostty auto-clear the OSC 9;4 progress bar after
+                // ~15 seconds of inactivity as a safety measure against apps that
+                // crash or are killed before sending the clear sequence. Re-emitting
+                // on each frame acts as a keep-alive.
+                // See: https://github.com/ghostty-org/ghostty/discussions/8823
+                #[cfg(feature = "osc-progress")]
+                stream.osc_start();
 
                 if do_stop {
                     break 'outer;
@@ -121,7 +165,7 @@ impl Spinner {
         Self {
             sender,
             join: Some(join),
-            stream
+            stream,
         }
     }
 
@@ -240,5 +284,7 @@ impl Spinner {
             .send((stop_time, stop_symbol))
             .expect("Could not stop spinner thread.");
         self.join.take().unwrap().join().unwrap();
+        #[cfg(feature = "osc-progress")]
+        self.stream.osc_stop();
     }
 }
