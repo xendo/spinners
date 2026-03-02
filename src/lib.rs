@@ -17,8 +17,8 @@
 /// via Ctrl+C, `SIGKILL`), the `Drop` implementation may not run and the
 /// progress bar won't be cleared. Terminals like Ghostty mitigate this with a
 /// ~15-second auto-clear timeout, but for immediate cleanup, applications should
-/// install their own signal handler that calls [`Stream::osc_stop`] or emits
-/// the OSC 9;4 remove sequence (`\x1b]9;4;0\x1b\\`) before exiting.
+/// install their own signal handler that stops the spinner (e.g. by dropping it
+/// or calling `.stop()`) before exiting.
 ///
 /// Reference: <https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC>
 ///
