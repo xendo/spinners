@@ -8,8 +8,9 @@
 > - [Open-Source **Webhook** as a Service](https://www.hook0.com/)
 > - [**Charts, simple as a URL**. 1 url = 1 chart - Charts API](https://image-charts.com)
 > - [Keycloak Identity and Access Management (IAM) as a Service](https://www.cloud-iam.com/)
-> - [Automate your **RoamResearch** second brain](https://www.roam-bot.com)
-> - [Blazing Fast Gitlab CI Runners (10x faster)](https://cloud-runner.com/)
+> - [**Recapro.ai** - AI meeting recorder, offline-first, 100% private, no data sent to third parties](https://recapro.ai)
+> - [**Natalia** - AI-powered phone assistant, auto-answers, qualifies & routes calls 24/7](https://getnatalia.com)
+> - [**Bunker** - Sovereign cloud hosting, deploy on EU infrastructure, 60% cheaper than AWS](https://getbunker.net)
 
 
 ![200083093-cf48fcab-d95c-4a59-ac66-6e167dd33e7e](https://github.com/FGRibreau/spinners/assets/138050/a3e4d4f9-44c4-4b54-82a7-e608ab1da742)
