@@ -1,4 +1,14 @@
 use std::{io::{Write, stdout, stderr, Result}, time::Instant};
+#[cfg(feature = "osc-progress")]
+use std::io::IsTerminal;
+
+/// OSC 9;4 escape sequence for indeterminate/pulsing progress (state 3)
+#[cfg(feature = "osc-progress")]
+const OSC9_4_INDETERMINATE: &str = "\x1b]9;4;3\x1b\\";
+
+/// OSC 9;4 escape sequence to remove/hide progress (state 0)
+#[cfg(feature = "osc-progress")]
+const OSC9_4_REMOVE: &str = "\x1b]9;4;0\x1b\\";
 
 /// Handles the Printing logic for the Spinner
 #[derive(Default, Copy, Clone)]
@@ -77,4 +87,39 @@ impl Stream {
         }?;
         writer.flush()
     }
+
+    /// Returns whether the underlying stream is a terminal
+    #[cfg(feature = "osc-progress")]
+    pub fn is_terminal(&self) -> bool {
+        match self {
+            Self::Stderr => stderr().is_terminal(),
+            Self::Stdout => stdout().is_terminal(),
+        }
+    }
+
+    /// Emits OSC 9;4 indeterminate progress (state 3)
+    #[cfg(feature = "osc-progress")]
+    pub fn osc_start(&self) {
+        if self.is_terminal() {
+            let mut w = self.match_target();
+            let _ = write!(w, "{}", OSC9_4_INDETERMINATE);
+        }
+    }
+
+    /// Emits OSC 9;4 remove progress (state 0)
+    #[cfg(feature = "osc-progress")]
+    pub fn osc_stop(&self) {
+        if self.is_terminal() {
+            let mut w = self.match_target();
+            let _ = write!(w, "{}", OSC9_4_REMOVE);
+        }
+    }
+
+    /// Flushes the underlying stream
+    #[cfg(feature = "osc-progress")]
+    pub fn osc_flush(&self) {
+        let mut w = self.match_target();
+        let _ = w.flush();
+    }
+
 }

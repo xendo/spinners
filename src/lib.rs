@@ -15,7 +15,7 @@ mod utils;
 pub struct Spinner {
     sender: Sender<(Instant, Option<String>)>,
     join: Option<JoinHandle<()>>,
-    stream: Stream
+    stream: Stream,
 }
 
 impl Drop for Spinner {
@@ -23,6 +23,11 @@ impl Drop for Spinner {
         if self.join.is_some() {
             self.sender.send((Instant::now(), None)).unwrap();
             self.join.take().unwrap().join().unwrap();
+            #[cfg(feature = "osc-progress")]
+            {
+                self.stream.osc_stop();
+                self.stream.osc_flush();
+            }
         }
     }
 }
@@ -95,6 +100,9 @@ impl Spinner {
 
         let stream = if let Some(stream) = stream { stream } else { Stream::default() };
 
+        #[cfg(feature = "osc-progress")]
+        stream.osc_start();
+
         let (sender, recv) = channel::<(Instant, Option<String>)>();
 
         let join = thread::spawn(move || 'outer: loop {
@@ -109,6 +117,13 @@ impl Spinner {
                 let frame = stop_symbol.unwrap_or_else(|| frame.to_string());
 
                 stream.write(&frame, &message, start_time, stop_time).expect("IO Error");
+                // Terminals like Ghostty auto-clear the OSC 9;4 progress bar after
+                // ~15 seconds of inactivity as a safety measure against apps that
+                // crash or are killed before sending the clear sequence. Re-emitting
+                // on each frame acts as a keep-alive.
+                // See: https://github.com/ghostty-org/ghostty/discussions/8823
+                #[cfg(feature = "osc-progress")]
+                stream.osc_start();
 
                 if do_stop {
                     break 'outer;
@@ -121,7 +136,7 @@ impl Spinner {
         Self {
             sender,
             join: Some(join),
-            stream
+            stream,
         }
     }
 
@@ -240,5 +255,7 @@ impl Spinner {
             .send((stop_time, stop_symbol))
             .expect("Could not stop spinner thread.");
         self.join.take().unwrap().join().unwrap();
+        #[cfg(feature = "osc-progress")]
+        self.stream.osc_stop();
     }
 }

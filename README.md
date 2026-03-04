@@ -45,6 +45,21 @@ cargo run --example cycle
 cargo run --example simple
 ```
 
+## Feature flags
+
+### `osc-progress`
+
+Enables native terminal progress bar support via the [ConEmu OSC 9;4](https://conemu.github.io/en/AnsiEscapeCodes.html#ConEmu_specific_OSC) protocol. Terminals like Ghostty, Windows Terminal, iTerm2, Kitty, and WezTerm render these as GUI progress bars in the title/tab bar. Unsupported terminals silently ignore the sequences.
+
+```toml
+[dependencies]
+spinners = { version = "4.1.0", features = ["osc-progress"] }
+```
+
+The progress bar is emitted as an indeterminate/pulsing indicator while the spinner is active, and cleared when the spinner is stopped or dropped. Sequences are only emitted when the output stream is a terminal, so piped output is unaffected.
+
+**Signal handling caveat:** If the process is killed abruptly (e.g. `SIGINT` via Ctrl+C, `SIGKILL`), the `Drop` implementation may not run and the progress bar won't be cleared. Terminals like Ghostty mitigate this with a ~15-second auto-clear timeout, but for immediate cleanup, applications should install their own signal handler that stops the spinner (e.g. by dropping it or calling `.stop()`) before exiting.
+
 ## License
 
 MIT © [François-Guillaume Ribreau](https://fgribreau.com), James Cordor
